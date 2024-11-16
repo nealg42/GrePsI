@@ -1,0 +1,213 @@
+print("
+                 *@@@%+--+%@@@*                 
+            .@%     <color=red>-+####+-.</color>    %@.            
+         .@-  <color=red>.******************.</color>  -@.         
+       :@  <color=red>:************************:</color>  @:       
+     .@  <color=red>******************************</color>  @.     
+    #+ <color=red>:********************************:</color> +#    
+   @. <color=red>************************************</color> .@   
+  @. <color=red>**************************************</color> .@  
+ +-  <color=red>#*****************:</color>                     -+ 
+ @                                            @ 
+#:                                            :#
+@    GreyScript Pseudo-Interpreter (GrePsI)    @
+@   ""We don't have COBAL, is GrePsI okay?""     @
+@                 version 1.0.1                @
+#:                                            :#
+ @                                            @ 
+ +-                     <color=blue>:@@@%%%%%%%%%%%%%@@.</color> -+ 
+  @. <color=blue>%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%</color> .@  
+   @. <color=blue>@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%@</color> .@   
+    #+ <color=blue>-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%-</color> +#    
+     .@  <color=blue>#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%</color>  @.     
+       :@  <color=blue>-%%%%%%%%%%%%%%%%%%%%%%%%-</color>  @:       
+         .@-  <color=blue>:%%%%%%%%%%%%%%%%%%:</color>  -@.         
+            .@%    <color=blue>.=#@@@@#=.</color>    %@.            
+                 *@@@%+--+%@@@*
+")
+
+
+host = get_shell.host_computer
+src_file = host.File(current_path+"/GrePsI.temp.src")
+src_code = ""
+code_buffer = ""
+code = ""
+if not src_file then
+	if host.touch(current_path, "GrePsI.temp.src") then
+		src_file = host.File(current_path+"/GrePsI.temp.src")
+	end if
+end if
+
+control = {}
+control.exit = function
+	self.reset
+	src_file.delete
+	bin_file = host.File(src_file.path.remove(".src"))
+	if bin_file then bin_file.delete
+	exit
+end function
+control.reset = function
+	globals.src_code = ""
+	for i in get_custom_object.indexes
+		get_custom_object.remove(i)
+	end for
+end function
+control.remove = function
+	params = code.split("\s+")
+	if params.hasIndex(1) and typeof(params[1].to_int) == "number" then
+		remove = params[1].to_int
+	else
+		remove = user_input("Number of lines to remove?: ").to_int
+	end if
+	globals.src_code = src_code.split("\n")[:-(remove)].join("
+")
+end function
+control.save = function
+	params = code.split("\s+")
+	if params.hasIndex(1) then
+		dest_path = params[1]
+	else
+		dest_path = user_input("Save path: ")
+	end if
+	if dest_path[0] != "/" then dest_path = current_path+"/"+dest_path 
+	dest_fldr = dest_path.split("/")[:-1].join("/")
+	dest_name = dest_path.split("/")[-1]
+	dest_file = host.File(dest_path)
+	if dest_file then
+		if user_input("Overwrite "+dest_path+"? y/n: ").is_match("[yY]") then
+			dest_file.set_content(src_code)
+		end if
+	else if host.touch(dest_fldr, dest_name) then
+		host.File(dest_path).set_content(src_code)
+	end if
+end function
+control.source = function
+	print(src_code)
+end function
+control.clear = function
+	clear_screen
+end function
+control.help = function
+	help = {
+		"data":{
+			"source": "prints the source code writen/loaded",
+			"remove": "<b>usage: remove [lines_number(opt)]</b>
+		"		+"removes a specified number of lines
+		"		+"from the end of source code",
+			"save": "<b>usage: save [path(opt)]</b>
+		"		+"saves source code to file",
+			"reset": "clears source code & get_custom_object",
+			"clear": "clears screen",
+			"exit": "clears source code & get_custom_object,
+		"		+"deletes supporting files, then exits",
+			"help": "<b>usage: help [control_command(opt)]</b>
+		"		+"prints this control command guide
+		"		+"or the specific entry you specified"},
+		"changelog": {
+			"1.0.1": "fix variable scope, flow code-buffer & spelling errors. add changelog"}}
+	help.report = function(excerpt = "")
+			output = "<u>COMMAND</u>	<u>INFO</u>"
+			
+			if excerpt == "" then
+				for entry in self.data
+					output = output + "
+"						+ "<b>"+entry.key+"</b>"+"	"+entry.value
+				end for
+			else if self.data.hasIndex(excerpt) then
+				output = output + "
+"						+ "<b>"+excerpt+"</b>"+"	"+self.data[excerpt]
+			else
+				print("No help entry for " + excerpt)
+				return false
+			end if
+			print(output)
+	end function
+	params = code.split("\s+")
+	if params.hasIndex(1) then
+		help.report(params[1])
+	else
+		help.report
+	end if
+end function
+
+run = function
+	src_file.set_content(sandwich(code))
+	comp_msg = get_shell.build(src_file.path, src_file.parent.path)
+	if comp_msg != "" then
+		print("<color=red>"+comp_msg)
+	else
+		get_shell.launch(src_file.path.remove(".src"))
+	end if
+end function
+
+flow = [
+	"if",
+	"for",
+	"while",
+	"function"]
+header = ">"
+
+flow_loop = function(flow)
+	if not flow then flow = code.split("\s+")[0]
+	launch = false
+	old_header = header
+	globals.header = header + flow + ">"
+	globals.code_buffer = code_buffer +"
+"+ 		code
+	while code != "end "+flow
+		code_loop(false)
+	end while
+	globals.header = old_header
+end function
+		
+sandwich = function(code)
+	return "map.import = function(obj)
+"+			"	for i in obj.indexes
+"+				"	self[i] = obj[i]
+"+			"	end for
+"+			"end function
+"+			"globals.import(get_custom_object)
+
+"+			code+"
+
+"+			"get_custom_object.import(globals)"
+end function
+
+code_loop = function(launch = true)
+	globals.code = user_input(header)
+	if control.hasIndex(code.split("\s+")[0]) then
+		control[code.split("\s+")[0]]
+	else if flow.indexOf(code.split("\s+")[0]) != null or
+		code.is_match("\bfunction\(?") then
+		if code.is_match("\bfunction\(?") then
+			flow_loop("function")
+		else
+			flow_loop
+		end if
+		if launch then
+			if code_buffer != "" then
+				globals.code = code_buffer
+				globals.code_buffer = ""
+			end if
+			globals.src_code = src_code + "
+"+			code
+			run
+		end if
+	else if not launch or (outer.hasIndex(launch) and not outer.launch) then
+		globals.code_buffer = code_buffer + "
+"+ 		code
+	else
+		if code_buffer != "" then
+			globals.code = code_buffer + "
+"+			code
+			globals.code_buffer = ""
+		end if
+		globals.src_code = src_code + "
+"+			code
+	 	run
+	end if
+end function
+
+while true
+	code_loop
+end while
