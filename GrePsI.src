@@ -12,7 +12,7 @@ print("
 #:                                            :#
 @    GreyScript Pseudo-Interpreter (GrePsI)    @
 @   ""We don't have COBAL, is GrePsI okay?""     @
-@                 version 1.0.1                @
+@                 version 1.1.0                @
 #:                                            :#
  @                                            @ 
  +-                     <color=blue>:@@@%%%%%%%%%%%%%@@.</color> -+ 
@@ -25,6 +25,7 @@ print("
             .@%    <color=blue>.=#@@@@#=.</color>    %@.            
                  *@@@%+--+%@@@*
 ")
+
 
 
 host = get_shell.host_computer
@@ -51,6 +52,14 @@ control.reset = function
 	for i in get_custom_object.indexes
 		get_custom_object.remove(i)
 	end for
+	globals.sandwich.header = "map.import = function(obj)
+"+			"	for i in obj.indexes
+"+				"	self[i] = obj[i]
+"+			"	end for
+"+			"end function
+"+			"globals.import(get_custom_object)
+
+"
 end function
 control.remove = function
 	params = code.split("\s+")
@@ -87,6 +96,18 @@ end function
 control.clear = function
 	clear_screen
 end function
+control.header = function
+	print("Current header code:
+"		+sandwich.header)
+	head = ""
+	header_code = user_input("header>")
+	while header_code != "end header"
+		head = head + header_code
+		header_code = user_input("header>")
+	end while
+	globals.sandwich.header = head + sandwich.header
+end function
+
 control.help = function
 	help = {
 		"data":{
@@ -94,9 +115,12 @@ control.help = function
 			"remove": "<b>usage: remove [lines_number(opt)]</b>
 		"		+"removes a specified number of lines
 		"		+"from the end of source code",
+			"header" :"adds code to the begining of every compilation.
+		"		+"most useful for basic class extensions.
+		"		+"exit with ""end header""",
 			"save": "<b>usage: save [path(opt)]</b>
 		"		+"saves source code to file",
-			"reset": "clears source code & get_custom_object",
+			"reset": "clears source code, header & get_custom_object",
 			"clear": "clears screen",
 			"exit": "clears source code & get_custom_object,
 		"		+"deletes supporting files, then exits",
@@ -104,7 +128,8 @@ control.help = function
 		"		+"prints this control command guide
 		"		+"or the specific entry you specified"},
 		"changelog": {
-			"1.0.1": "fix variable scope, flow code-buffer & spelling errors. add changelog"}}
+			"1.0.1": "fix variable scope, flow code-buffer & spelling errors. add changelog",
+			"1.1.0": "add header command for header modification"}}
 	help.report = function(excerpt = "")
 			output = "<u>COMMAND</u>	<u>INFO</u>"
 			
@@ -131,7 +156,7 @@ control.help = function
 end function
 
 run = function
-	src_file.set_content(sandwich(code))
+	src_file.set_content(sandwich.make(code))
 	comp_msg = get_shell.build(src_file.path, src_file.parent.path)
 	if comp_msg != "" then
 		print("<color=red>"+comp_msg)
@@ -159,18 +184,20 @@ flow_loop = function(flow)
 	end while
 	globals.header = old_header
 end function
-		
-sandwich = function(code)
-	return "map.import = function(obj)
+
+sandwich = {
+	"header": "map.import = function(obj)
 "+			"	for i in obj.indexes
 "+				"	self[i] = obj[i]
 "+			"	end for
 "+			"end function
 "+			"globals.import(get_custom_object)
 
-"+			code+"
-
-"+			"get_custom_object.import(globals)"
+",
+	"footer": "
+"			+"get_custom_object.import(globals)"}
+sandwich.make = function(code)
+	return self.header+code+self.footer
 end function
 
 code_loop = function(launch = true)
