@@ -12,7 +12,7 @@ print("
 #:                                            :#
 @    GreyScript Pseudo-Interpreter (GrePsI)    @
 @   ""We don't have COBAL, is GrePsI okay?""     @
-@                 version 1.1.0                @
+@                 version 1.2.0                @
 #:                                            :#
  @                                            @ 
  +-                     <color=blue>:@@@%%%%%%%%%%%%%@@.</color> -+ 
@@ -126,14 +126,19 @@ control.help = function
 		"		+"deletes supporting files, then exits",
 			"help": "<b>usage: help [control_command(opt)]</b>
 		"		+"prints this control command guide
-		"		+"or the specific entry you specified"},
+		"		+"or the entry you specify"},
 		"changelog": {
 			"1.0.1": "fix variable scope, flow code-buffer & spelling errors. add changelog",
-			"1.1.0": "add header command for header modification"}}
+			"1.1.0": "add header command for header modification",
+			"1.2.0": "add parameter import feature"}}
 	help.report = function(excerpt = "")
 			output = "<u>COMMAND</u>	<u>INFO</u>"
 			
 			if excerpt == "" then
+				output = "<b>Usage:	GrePsI [src/bin Path(opt)]...</b>
+"					+"		imports code from specified paths at startup.
+
+"					+output
 				for entry in self.data
 					output = output + "
 "						+ "<b>"+entry.key+"</b>"+"	"+entry.value
@@ -234,6 +239,16 @@ code_loop = function(launch = true)
 	 	run
 	end if
 end function
+
+if params then
+	for param in params
+		code = "import_"+"code("""+param+""")"
+		src_code = src_code + "
+"+			code
+		print(header+code)
+		run
+	end for
+end if
 
 while true
 	code_loop
