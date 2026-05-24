@@ -12,7 +12,7 @@ print("
 #:                                            :#
 @    GreyScript Pseudo-Interpreter (GrePsI)    @
 @   ""We don't have COBAL, is GrePsI okay?""     @
-@                 version 1.2.0                @
+@                 version 1.2.1                @
 #:                                            :#
  @                                            @ 
  +-                     <color=blue>:@@@%%%%%%%%%%%%%@@.</color> -+ 
@@ -105,7 +105,8 @@ control.header = function
 		head = head + header_code
 		header_code = user_input("header>")
 	end while
-	globals.sandwich.header = head + sandwich.header
+	globals.sandwich.header = head + "
+"		+ sandwich.header
 end function
 
 control.help = function
