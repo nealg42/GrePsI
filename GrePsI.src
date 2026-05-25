@@ -12,7 +12,7 @@ print("
 #:                                            :#
 @    GreyScript Pseudo-Interpreter (GrePsI)    @
 @   ""We don't have COBAL, is GrePsI okay?""     @
-@                 version 1.2.1                @
+@                                              @
 #:                                            :#
  @                                            @ 
  +-                     <color=blue>:@@@%%%%%%%%%%%%%@@.</color> -+ 
@@ -25,7 +25,6 @@ print("
             .@%    <color=blue>.=#@@@@#=.</color>    %@.            
                  *@@@%+--+%@@@*
 ")
-
 
 
 host = get_shell.host_computer
@@ -100,11 +99,11 @@ control.header = function
 	print("Current header code:
 "		+sandwich.header)
 	head = ""
-	header_code = user_input("header>")
+	header_code = user_input("header>", false, false, true)
 	while header_code != "end header"
 		head = head + "
 "			+ header_code
-		header_code = user_input("header>")
+		header_code = user_input("header>", false, false, true)
 	end while
 	globals.sandwich.header = head + "
 "		+ sandwich.header
@@ -128,11 +127,7 @@ control.help = function
 		"		+"deletes supporting files, then exits",
 			"help": "<b>usage: help [control_command(opt)]</b>
 		"		+"prints this control command guide
-		"		+"or the entry you specify"},
-		"changelog": {
-			"1.0.1": "fix variable scope, flow code-buffer & spelling errors. add changelog",
-			"1.1.0": "add header command for header modification",
-			"1.2.0": "add parameter import feature"}}
+		"		+"or the entry you specify"}}
 	help.report = function(excerpt = "")
 			output = "<u>COMMAND</u>	<u>INFO</u>"
 			
@@ -162,13 +157,28 @@ control.help = function
 	end if
 end function
 
+
+runtime_airbag = {}
 run = function
+	map.import = function(obj)
+		for i in obj.indexes
+			self[i] = obj[i]
+		end for
+	end function
 	src_file.set_content(sandwich.make(code))
 	comp_msg = get_shell.build(src_file.path, src_file.parent.path)
 	if comp_msg != "" then
 		print("<color=red>"+comp_msg)
+		//TODO: Error interpretation & correctoin
 	else
 		get_shell.launch(src_file.path.remove(".src"))
+		if typeof(get_custom_object) == "map" and get_custom_object != {} then
+			runtime_airbag.import(get_custom_object)
+		else if typeof(get_custom_object) == "custom_object" then
+			get_custom_object.remove("__isa")
+			get_custom_object.remove("classID")
+			get_custom_object.import(runtime_airbag)
+		end if
 	end if
 end function
 
@@ -177,13 +187,13 @@ flow = [
 	"for",
 	"while",
 	"function"]
-header = ">"
+header = "> "
 
 flow_loop = function(flow)
 	if not flow then flow = code.split("\s+")[0]
 	launch = false
 	old_header = header
-	globals.header = header + flow + ">"
+	globals.header = header + flow + "> "
 	globals.code_buffer = code_buffer +"
 "+ 		code
 	while code != "end "+flow
@@ -208,7 +218,7 @@ sandwich.make = function(code)
 end function
 
 code_loop = function(launch = true)
-	globals.code = user_input(header)
+	globals.code = user_input(header, false, false, true)
 	if control.hasIndex(code.split("\s+")[0]) then
 		control[code.split("\s+")[0]]
 	else if flow.indexOf(code.split("\s+")[0]) != null or
