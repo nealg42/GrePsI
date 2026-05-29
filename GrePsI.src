@@ -25,24 +25,29 @@ print("
             .@%    <color=blue>.=#@@@@#=.</color>    %@.            
                  *@@@%+--+%@@@*
 ")
-
-
-host = get_shell.host_computer
+mtn_range = [{"shell": get_shell, "path" : current_path}]
+mount_point = 0
+shell = get_shell
+host = function
+	return shell.host_computer
+end function
 src_file = host.File(current_path+"/GrePsI.temp.src")
 src_code = ""
 code_buffer = ""
 code = ""
 if not src_file then
-	if host.touch(current_path, "GrePsI.temp.src") then
+	tap = host.touch(current_path, "GrePsI.temp.src")
+	if typeof(tap) == "number" then
 		src_file = host.File(current_path+"/GrePsI.temp.src")
+	else
+		exit("<color=blue>"+tap)
 	end if
 end if
 
 control = {}
 control.exit = function
-	self.reset
-	src_file.delete
 	bin_file = host.File(src_file.path.remove(".src"))
+	src_file.delete
 	if bin_file then bin_file.delete
 	exit
 end function
@@ -51,14 +56,7 @@ control.reset = function
 	for i in get_custom_object.indexes
 		get_custom_object.remove(i)
 	end for
-	globals.sandwich.header = "map.import = function(obj)
-"+			"	for i in obj.indexes
-"+				"	self[i] = obj[i]
-"+			"	end for
-"+			"end function
-"+			"globals.import(get_custom_object)
-
-"
+	globals.sandwich.header = sandwich.default_header
 end function
 control.remove = function
 	params = code.split("\s+")
@@ -97,18 +95,87 @@ control.clear = function
 end function
 control.header = function
 	print("Current header code:
-"		+sandwich.header)
+"		+get_src_header)
 	head = ""
-	header_code = user_input("header>", false, false, true)
+	header_code = user_input("header> ", false, false, true)
 	while header_code != "end header"
 		head = head + "
 "			+ header_code
-		header_code = user_input("header>", false, false, true)
+		header_code = user_input("header> ", false, false, true)
 	end while
 	globals.sandwich.header = head + "
-"		+ sandwich.header
+"		+ get_src_header
 end function
-
+control.mount = function(point = "")
+	if point == "" then
+		params = code.split("\s")[1:]
+	else
+	    params = point
+	end if
+	if params.len == 0 then
+		info = "INDEX HOSTNAME PATH"
+		for i in mtn_range.indexes
+			info = info +"\n"+i+" "+mtn_range[i].shell.host_computer.get_name+" "+mtn_range[i].path
+		end for
+		print(format_columns(info))
+		return
+	else if params.len == 1 and typeof(to_int(params[0])) == "number" then
+		globals.mount_point = to_int(params[0])
+		mtn_shell = mtn_range[mount_point].shell
+		mtn_path = mtn_range[mount_point].path
+	else
+		map.at_idx = function(idx)
+			result = self
+			for i in idx.split("\.")
+				if result.hasIndex(i) then
+					result = result[i]
+				else
+					result = ""
+					break
+				end if
+			end for
+			return result
+		end function
+		mtn_shell = get_custom_object.at_idx(params[0])
+		if typeof(mtn_shell) == "shell" then
+			mtn_path = params[1]
+			mtn_range.push({"shell":mtn_shell, "path":mtn_path})
+			globals.mount_point = mtn_range.indexes[-1]
+		else
+			print("<color=blue>MTN_SHELL TYPE ERROR:")
+			print(mtn_shell)
+			return
+		end if
+	end if
+	host = mtn_shell.host_computer
+	current_path = mtn_path
+	src_file = host.File(current_path+"/GrePsI.temp.src")
+	if not src_file then
+		tap = host.touch(current_path, "GrePsI.temp.src")
+		if typeof(tap) == "number" then
+			globals.src_file = host.File(current_path+"/GrePsI.temp.src")
+			globals.shell = mtn_shell
+			globals.current_path = globals.src_file.path
+			globals.sandwich.header = sandwich.default_header
+		else
+			print("<color=blue>"+tap)
+		end if
+	else
+		globals.src_file = src_file
+		globals.shell = mtn_shell
+		globals.current_path = globals.src_file.path
+		globals.sandwich.header = sandwich.default_header
+	end if
+end function
+control.dismount = function
+	bin_file = host.File(src_file.path.remove(".src"))
+	src_file.delete
+	if bin_file then bin_file.delete
+	if mount_point then 
+		mtn_range.remove(mount_point)
+	end if
+	self.mount(["0"])
+end function
 control.help = function
 	help = {
 		"data":{
@@ -166,14 +233,15 @@ run = function
 		end for
 	end function
 	src_file.set_content(sandwich.make(code))
-	comp_msg = get_shell.build(src_file.path, src_file.parent.path)
+	comp_msg = shell.build(src_file.path, src_file.parent.path)
 	if comp_msg != "" then
-		print("<color=red>"+comp_msg)
+		print("<color=blue>COMP_MSG: """ + comp_msg +" """)
 		//TODO: Error interpretation & correctoin
 	else
-		get_shell.launch(src_file.path.remove(".src"))
-		if typeof(get_custom_object) == "map" and get_custom_object != {} then
-			runtime_airbag.import(get_custom_object)
+		shell.launch(src_file.path.remove(".src"))
+		if typeof(get_custom_object) == "map" then
+			//runtime_airbag.import(get_custom_object)
+			runtime_airbag = get_custom_object
 		else if typeof(get_custom_object) == "custom_object" then
 			get_custom_object.remove("__isa")
 			get_custom_object.remove("classID")
@@ -203,18 +271,32 @@ flow_loop = function(flow)
 end function
 
 sandwich = {
-	"header": "map.import = function(obj)
+	"default_header": "map.import = function(obj)
 "+			"	for i in obj.indexes
 "+				"	self[i] = obj[i]
 "+			"	end for
 "+			"end function
 "+			"globals.import(get_custom_object)
+"+			"/"+"/HEADER
 
 ",
 	"footer": "
 "			+"get_custom_object.import(globals)"}
+sandwich.header = sandwich.default_header
+get_src_header = function
+	if src_file.get_content != "" then
+		return src_file.get_content.matches("^.+?(?<=\/\/HEADER)", "s").values[0] + "
+	
+"
+	end if
+end function
 sandwich.make = function(code)
-	return self.header+code+self.footer
+	if self.header == self.default_header and src_file.get_content != "" then
+		hdr = get_src_header
+	else
+		hdr = self.header
+	end if
+	return hdr+code+self.footer
 end function
 
 code_loop = function(launch = true)
