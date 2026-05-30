@@ -240,8 +240,7 @@ run = function
 	else
 		shell.launch(src_file.path.remove(".src"))
 		if typeof(get_custom_object) == "map" then
-			//runtime_airbag.import(get_custom_object)
-			runtime_airbag = get_custom_object
+			runtime_airbag.import(get_custom_object)
 		else if typeof(get_custom_object) == "custom_object" then
 			get_custom_object.remove("__isa")
 			get_custom_object.remove("classID")
