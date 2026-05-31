@@ -56,7 +56,7 @@ control.reset = function
 	for i in get_custom_object.indexes
 		get_custom_object.remove(i)
 	end for
-	globals.sandwich.header = sandwich.default_header
+	globals.sandwich.header = ""
 end function
 control.remove = function
 	params = code.split("\s+")
@@ -119,10 +119,14 @@ control.mount = function(point = "")
 		end for
 		print(format_columns(info))
 		return
-	else if params.len == 1 and typeof(to_int(params[0])) == "number" then
-		globals.mount_point = to_int(params[0])
-		mtn_shell = mtn_range[mount_point].shell
-		mtn_path = mtn_range[mount_point].path
+	else if params.len == 1 then
+		if typeof(to_int(params[0])) == "number" then
+			globals.mount_point = to_int(params[0])
+			mtn_shell = mtn_range[mount_point].shell
+			mtn_path = mtn_range[mount_point].path
+		else
+			//TODO: handle shells with unspecified home directories
+		end if
 	else
 		map.at_idx = function(idx)
 			result = self
@@ -293,7 +297,11 @@ sandwich.make = function(code)
 	if self.header == self.default_header and src_file.get_content != "" then
 		hdr = get_src_header
 	else
-		hdr = self.header
+		if not self.header.is_match("^[\s\n]*$") then
+			hdr = self.header
+		else
+			hdr = self.default_header
+		end if
 	end if
 	return hdr+code+self.footer
 end function
