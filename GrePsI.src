@@ -130,7 +130,9 @@ control.mount = function(point = "")
 	else
 		map.at_idx = function(idx)
 			result = self
-			for i in idx.split("\.")
+			for i in idx.split("[\.\[\]]")
+				if not i.is_match("^\w+$") then continue
+				if i.to_int != null then i = i.to_int
 				if result.hasIndex(i) then
 					result = result[i]
 				else
